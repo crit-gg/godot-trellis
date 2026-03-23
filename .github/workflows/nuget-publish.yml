@@ -1,0 +1,76 @@
+name: NuGet Publish
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Force version bump type (overrides auto)'
+        required: false
+        default: ''
+        type: choice
+        options:
+          - ''
+          - patch
+          - minor
+          - major
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history required by prospector
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Calculate version
+        id: version
+        uses: arcmantle/prospector@v1.1.0
+        with:
+          suggest: ${{ github.event.inputs.bump }}
+
+      - name: Restore dependencies
+        if: steps.version.outputs.commits-since-tag != '0'
+        run: dotnet restore
+
+      - name: Build
+        if: steps.version.outputs.commits-since-tag != '0'
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Pack
+        if: steps.version.outputs.commits-since-tag != '0'
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          for proj in GodotTrellis.Generator GodotTrellis; do
+            dotnet pack "$proj/$proj.csproj" \
+              --configuration Release \
+              --no-build \
+              --output ./nupkgs \
+              -p:PackageVersion="$VERSION"
+          done
+
+      - name: Push to NuGet.org
+        if: steps.version.outputs.commits-since-tag != '0'
+        run: |
+          dotnet nuget push ./nupkgs/*.nupkg \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: Tag release
+        if: steps.version.outputs.commits-since-tag != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
