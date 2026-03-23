@@ -26,13 +26,13 @@ public interface IResolvedDependency
     bool Revalidate(Node owner);
 
     /// <summary>
-    /// Subscribes to the current provider's <see cref="IProvide{T}.Changed"/>
+    /// Subscribes to the current provider's <see cref="IProvide{T}.ProvidedValueChanged"/>
     /// event so that value changes are detected without a tree walk.
     /// </summary>
     void SubscribeToProvider();
 
     /// <summary>
-    /// Unsubscribes from the current provider's <see cref="IProvide{T}.Changed"/>
+    /// Unsubscribes from the current provider's <see cref="IProvide{T}.ProvidedValueChanged"/>
     /// event. Called before revalidation or cache invalidation to prevent
     /// stale subscriptions.
     /// </summary>

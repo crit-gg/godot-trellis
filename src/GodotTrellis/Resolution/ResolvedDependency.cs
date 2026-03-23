@@ -5,7 +5,7 @@ namespace GodotTrellis;
 /// <summary>
 /// Caches a single resolved dependency, tracking both the value and the
 /// provider node that supplied it. Handles revalidation after reparenting
-/// and subscribes to the provider's <see cref="IProvide{T}.Changed"/> event
+/// and subscribes to the provider's <see cref="IProvide{T}.ProvidedValueChanged"/> event
 /// for automatic value refresh.
 /// </summary>
 /// <typeparam name="T">The dependency type.</typeparam>
@@ -82,20 +82,20 @@ public sealed class ResolvedDependency<T> : IResolvedDependency where T : class
     public void SubscribeToProvider()
     {
         if (Provider is IProvide<T> provide)
-            provide.Changed += OnProviderChanged;
+            provide.ProvidedValueChanged += OnProviderProvidedValueChanged;
     }
 
     /// <inheritdoc />
     public void UnsubscribeFromProvider()
     {
         if (Provider is IProvide<T> provide)
-            provide.Changed -= OnProviderChanged;
+            provide.ProvidedValueChanged -= OnProviderProvidedValueChanged;
     }
 
-    private void OnProviderChanged()
+    private void OnProviderProvidedValueChanged()
     {
         if (Provider is IProvide<T> provide)
-            Value = provide.Value();
+            Value = provide.GetProvidedValue();
 
         _onChanged?.Invoke(DependencyType);
     }

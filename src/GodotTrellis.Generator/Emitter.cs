@@ -26,9 +26,9 @@ internal static class Emitter
         sb.AppendLine("{");
 
         // Resolver field and property
-        sb.AppendLine("    private GodotTrellis.DependencyResolver? __deps;");
-        sb.AppendLine("    internal GodotTrellis.DependencyResolver __Deps");
-        sb.AppendLine("        => __deps ??= new GodotTrellis.DependencyResolver(this);");
+        sb.AppendLine("    private GodotTrellis.DependencyResolver? __trellis;");
+        sb.AppendLine("    internal GodotTrellis.DependencyResolver GDTrellis");
+        sb.AppendLine("        => __trellis ??= new GodotTrellis.DependencyResolver(this);");
         sb.AppendLine();
 
         for (var i = 0; i < model.Properties.Count; i++)
@@ -58,7 +58,7 @@ internal static class Emitter
         var propertyName = EscapeIdentifier(prop.PropertyName);
 
         sb.AppendLine($"    {prop.AccessModifier} partial {prop.TypeName} {propertyName}");
-        sb.AppendLine($"        => __Deps.Resolve<{resolveType}>({args});");
+        sb.AppendLine($"        => GDTrellis.Resolve<{resolveType}>({args});");
     }
 
     private static void EmitOptionalProperty(StringBuilder sb, PropertyModel prop)
@@ -68,7 +68,7 @@ internal static class Emitter
         var propertyName = EscapeIdentifier(prop.PropertyName);
 
         sb.AppendLine($"    {prop.AccessModifier} partial {prop.TypeName} {propertyName}");
-        sb.AppendLine($"        => __Deps.ResolveOptional<{resolveType}>({args});");
+        sb.AppendLine($"        => GDTrellis.ResolveOptional<{resolveType}>({args});");
     }
 
     private static void EmitCollectionProperty(StringBuilder sb, PropertyModel prop)
@@ -78,7 +78,7 @@ internal static class Emitter
         var propertyName = EscapeIdentifier(prop.PropertyName);
 
         sb.AppendLine($"    {prop.AccessModifier} partial {prop.TypeName} {propertyName}");
-        sb.AppendLine($"        => __Deps.ResolveAll<{elementType}>({args});");
+        sb.AppendLine($"        => GDTrellis.ResolveAll<{elementType}>({args});");
     }
 
     private static string BuildArgs(PropertyModel prop)

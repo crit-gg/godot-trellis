@@ -23,7 +23,7 @@ public sealed class DependencyResolver
     /// <summary>
     /// Invoked when a specific dependency changes, either because the provider
     /// node changed after reparenting, or because the provider fired its
-    /// <see cref="IProvide{T}.Changed"/> event. The argument is the dependency type.
+    /// <see cref="IProvide{T}.ProvidedValueChanged"/> event. The argument is the dependency type.
     /// </summary>
     public Action<Type>? OnDependencyChanged;
 
@@ -568,7 +568,7 @@ public sealed class DependencyResolver
         // IProvide<T> takes priority over direct type match.
         if (node is IProvide<T> provider)
         {
-            value = provider.Value();
+            value = provider.GetProvidedValue();
             return true;
         }
 

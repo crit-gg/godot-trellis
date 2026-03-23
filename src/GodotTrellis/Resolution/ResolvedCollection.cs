@@ -5,7 +5,7 @@ namespace GodotTrellis;
 /// <summary>
 /// Caches a collection of resolved dependencies for <see cref="IEnumerable{T}"/>
 /// properties. Tracks each value alongside its provider node for revalidation.
-/// Subscribes to each provider's <see cref="IProvide{T}.Changed"/> event.
+/// Subscribes to each provider's <see cref="IProvide{T}.ProvidedValueChanged"/> event.
 /// </summary>
 /// <typeparam name="T">The dependency type.</typeparam>
 public sealed class ResolvedCollection<T> : IResolvedDependency where T : class
@@ -76,7 +76,7 @@ public sealed class ResolvedCollection<T> : IResolvedDependency where T : class
         foreach (var (_, provider) in _entries)
         {
             if (provider is IProvide<T> provide)
-                provide.Changed += OnProviderChanged;
+                provide.ProvidedValueChanged += OnProviderProvidedValueChanged;
         }
     }
 
@@ -86,11 +86,11 @@ public sealed class ResolvedCollection<T> : IResolvedDependency where T : class
         foreach (var (_, provider) in _entries)
         {
             if (provider is IProvide<T> provide)
-                provide.Changed -= OnProviderChanged;
+                provide.ProvidedValueChanged -= OnProviderProvidedValueChanged;
         }
     }
 
-    private void OnProviderChanged()
+    private void OnProviderProvidedValueChanged()
     {
         // Pull all values from their providers. We don't know which
         // specific provider fired, so refresh the full list.
@@ -98,7 +98,7 @@ public sealed class ResolvedCollection<T> : IResolvedDependency where T : class
         {
             var (_, provider) = _entries[i];
             if (provider is IProvide<T> provide)
-                _entries[i] = (provide.Value(), provider);
+                _entries[i] = (provide.GetProvidedValue(), provider);
         }
 
         _onChanged?.Invoke(DependencyType);

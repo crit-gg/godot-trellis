@@ -63,7 +63,7 @@ public partial class AppRoot : Node, IProvide<ILogger>
 {
     private readonly ILogger _logger = new ConsoleLogger();
 
-    public ILogger Value() => _logger;
+    public ILogger GetProvidedValue() => _logger;
 }
 ```
 
@@ -198,7 +198,7 @@ If no provider is found, the property returns `null` instead of throwing.
 
 ### Static Provider
 
-Value never changes. Just implement `Value()`:
+Value never changes. Just implement `GetProvidedValue()`:
 
 ```csharp
 public partial class ServiceRoot : Node, IProvide<ILogger>, IProvide<IConfigProvider>
@@ -206,8 +206,8 @@ public partial class ServiceRoot : Node, IProvide<ILogger>, IProvide<IConfigProv
     private readonly ILogger _logger = new FileLogger();
     private readonly IConfigProvider _config = new JsonConfig();
 
-    public ILogger Value() => _logger;
-    IConfigProvider IProvide<IConfigProvider>.Value() => _config;
+    public ILogger GetProvidedValue() => _logger;
+    IConfigProvider IProvide<IConfigProvider>.GetProvidedValue() => _config;
 }
 ```
 
@@ -222,8 +222,8 @@ public partial class ThemeManager : Node, IProvide<ITheme>
 {
     private ITheme _current = new DefaultTheme();
 
-    public ITheme Value() => _current;
-    public new event Action? Changed;
+    public ITheme GetProvidedValue() => _current;
+    public event Action? ProvidedValueChanged;
 
     public void SetTheme(ITheme theme)
     {

@@ -18,4 +18,4 @@ config/features=PackedStringArray("4.5")
 
 [dotnet]
 
-project/assembly_name="GodotTrellis.Tests""
+project/assembly_name="GodotTrellis.Tests"
