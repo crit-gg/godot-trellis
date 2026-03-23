@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -7,30 +8,45 @@ namespace GodotTrellis.Generator;
 [Generator(LanguageNames.CSharp)]
 public sealed class TrellisSourceGenerator : IIncrementalGenerator
 {
-    private static readonly string[] FromAttributeNames =
-    {
-        "FromAncestor",
-        "FromAncestorAttribute",
-        "FromOwner",
-        "FromOwnerAttribute",
-        "FromGroup",
-        "FromGroupAttribute",
-        "FromChild",
-        "FromChildAttribute",
-    };
+    private const string FromAncestorAttributeMetadataName = "GodotTrellis.FromAncestorAttribute";
+    private const string FromOwnerAttributeMetadataName = "GodotTrellis.FromOwnerAttribute";
+    private const string FromGroupAttributeMetadataName = "GodotTrellis.FromGroupAttribute";
+    private const string FromChildAttributeMetadataName = "GodotTrellis.FromChildAttribute";
+    private const string GodotNodeMetadataName = "Godot.Node";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var propertyInfos = context.SyntaxProvider
-            .CreateSyntaxProvider(
-                predicate: static (node, _) => IsCandidate(node),
-                transform: static (ctx, ct) => ExtractPropertyInfo(ctx, ct))
-            .Where(static info => info is not null)
-            .Select(static (info, _) => info!);
+        var fromAncestorProperties = CreateAttributedPropertyProvider(
+            context, FromAncestorAttributeMetadataName);
+        var fromOwnerProperties = CreateAttributedPropertyProvider(
+            context, FromOwnerAttributeMetadataName);
+        var fromGroupProperties = CreateAttributedPropertyProvider(
+            context, FromGroupAttributeMetadataName);
+        var fromChildProperties = CreateAttributedPropertyProvider(
+            context, FromChildAttributeMetadataName);
 
-        var collected = propertyInfos.Collect();
+        var candidateProperties = fromAncestorProperties
+            .Collect()
+            .Combine(fromOwnerProperties.Collect())
+            .Combine(fromGroupProperties.Collect())
+            .Combine(fromChildProperties.Collect())
+            .Select(static (x, _) => MergePropertySymbols(
+                x.Left.Left.Left,
+                x.Left.Left.Right,
+                x.Left.Right,
+                x.Right));
 
-        context.RegisterSourceOutput(collected, static (spc, properties) =>
+        var symbols = context.CompilationProvider
+            .Select(static (compilation, _) => SymbolLookup.Create(compilation));
+
+        var propertyInfos = candidateProperties
+            .Combine(symbols)
+            .Select(static (x, ct) => BuildPropertyInfos(
+                x.Left,
+                x.Right,
+                ct));
+
+        context.RegisterSourceOutput(propertyInfos, static (spc, properties) =>
         {
             // Report all diagnostics first.
             foreach (var prop in properties)
@@ -68,39 +84,73 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
         });
     }
 
-    /// <summary>
-    /// Fast syntactic check — does this node look like a property with a From* attribute?
-    /// </summary>
-    private static bool IsCandidate(SyntaxNode node)
+    private static IncrementalValuesProvider<IPropertySymbol> CreateAttributedPropertyProvider(
+        IncrementalGeneratorInitializationContext context,
+        string attributeMetadataName)
     {
-        if (node is not PropertyDeclarationSyntax property)
-            return false;
+        return context.SyntaxProvider.ForAttributeWithMetadataName(
+            fullyQualifiedMetadataName: attributeMetadataName,
+            predicate: static (node, _) => node is PropertyDeclarationSyntax,
+            transform: static (ctx, _) => (IPropertySymbol)ctx.TargetSymbol);
+    }
 
-        foreach (var attrList in property.AttributeLists)
+    private static ImmutableArray<IPropertySymbol> MergePropertySymbols(
+        ImmutableArray<IPropertySymbol> fromAncestorProperties,
+        ImmutableArray<IPropertySymbol> fromOwnerProperties,
+        ImmutableArray<IPropertySymbol> fromGroupProperties,
+        ImmutableArray<IPropertySymbol> fromChildProperties)
+    {
+        var builder = ImmutableArray.CreateBuilder<IPropertySymbol>(
+            fromAncestorProperties.Length +
+            fromOwnerProperties.Length +
+            fromGroupProperties.Length +
+            fromChildProperties.Length);
+
+        builder.AddRange(fromAncestorProperties);
+        builder.AddRange(fromOwnerProperties);
+        builder.AddRange(fromGroupProperties);
+        builder.AddRange(fromChildProperties);
+
+        return builder.ToImmutable();
+    }
+
+    private static ImmutableArray<PropertyInfo> BuildPropertyInfos(
+        ImmutableArray<IPropertySymbol> propertySymbols,
+        SymbolLookup symbols,
+        CancellationToken ct)
+    {
+        var seen = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
+        var builder = ImmutableArray.CreateBuilder<PropertyInfo>();
+
+        foreach (var propSymbol in propertySymbols)
         {
-            foreach (var attr in attrList.Attributes)
-            {
-                var name = GetAttributeName(attr);
-                if (name is not null && IsFromAttribute(name))
-                    return true;
-            }
+            ct.ThrowIfCancellationRequested();
+
+            if (!seen.Add(propSymbol))
+                continue;
+
+            var info = ExtractPropertyInfo(propSymbol, symbols, ct);
+            if (info is not null)
+                builder.Add(info);
         }
 
-        return false;
+        return builder.ToImmutable();
     }
 
     /// <summary>
     /// Semantic analysis of a candidate property.
     /// </summary>
     private static PropertyInfo? ExtractPropertyInfo(
-        GeneratorSyntaxContext context,
+        IPropertySymbol propSymbol,
+        SymbolLookup symbols,
         CancellationToken ct)
     {
-        var property = (PropertyDeclarationSyntax)context.Node;
-        var semanticModel = context.SemanticModel;
+        var declarations = GetPropertyDeclarations(propSymbol, ct);
+        var location = declarations.Count > 0
+            ? declarations[0].GetLocation()
+            : propSymbol.Locations.FirstOrDefault();
 
-        var propertySymbol = semanticModel.GetDeclaredSymbol(property, ct);
-        if (propertySymbol is not IPropertySymbol propSymbol)
+        if (location is null)
             return null;
 
         // Find From* attributes.
@@ -108,16 +158,8 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
 
         foreach (var attrData in propSymbol.GetAttributes())
         {
-            var attrClass = attrData.AttributeClass;
-            if (attrClass is null) continue;
-
-            if (TryGetStrategy(attrClass.Name, out var strategy))
-            {
-                // Verify it's our attribute from the GodotTrellis namespace.
-                var cns = attrClass.ContainingNamespace?.ToDisplayString();
-                if (cns == "GodotTrellis")
-                    fromAttributes.Add((attrData, strategy));
-            }
+            if (TryGetStrategy(attrData.AttributeClass, symbols, out var strategy))
+                fromAttributes.Add((attrData, strategy));
         }
 
         if (fromAttributes.Count == 0)
@@ -132,31 +174,32 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
             diagnostics ??= new List<Diagnostic>();
             diagnostics.Add(Diagnostic.Create(
                 DiagnosticDescriptors.MultipleFromAttributes,
-                property.GetLocation(),
+                location,
                 propSymbol.Name));
+            hasErrors = true;
         }
 
         var (primaryAttr, primaryStrategy) = fromAttributes[0];
 
         // GTR001: Property must be partial.
-        if (!property.Modifiers.Any(SyntaxKind.PartialKeyword))
+        if (!IsPartialProperty(declarations))
         {
             diagnostics ??= new List<Diagnostic>();
             diagnostics.Add(Diagnostic.Create(
                 DiagnosticDescriptors.NonPartialProperty,
-                property.GetLocation(),
+                location,
                 propSymbol.Name));
             hasErrors = true;
         }
 
         // GTR002: Containing class must inherit from Godot.Node.
         var containingType = propSymbol.ContainingType;
-        if (!InheritsFromGodotNode(containingType))
+        if (!InheritsFromGodotNode(containingType, symbols.GodotNode))
         {
             diagnostics ??= new List<Diagnostic>();
             diagnostics.Add(Diagnostic.Create(
                 DiagnosticDescriptors.NotANodeClass,
-                property.GetLocation(),
+                location,
                 propSymbol.Name,
                 containingType.Name));
             hasErrors = true;
@@ -174,7 +217,7 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
             diagnostics ??= new List<Diagnostic>();
             diagnostics.Add(Diagnostic.Create(
                 DiagnosticDescriptors.MissingGroupName,
-                property.GetLocation(),
+                location,
                 propSymbol.Name));
             hasErrors = true;
         }
@@ -190,7 +233,7 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
             diagnostics ??= new List<Diagnostic>();
             diagnostics.Add(Diagnostic.Create(
                 DiagnosticDescriptors.OptionalButNotNullable,
-                property.GetLocation(),
+                location,
                 propSymbol.Name,
                 propertyType.ToDisplayString()));
             hasErrors = true;
@@ -199,6 +242,10 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
         // Detect IEnumerable<T> / IReadOnlyList<T>.
         string? collectionElementTypeName = null;
         var typeName = propertyType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var optionalResolveTypeName = isOptional
+            ? propertyType.WithNullableAnnotation(NullableAnnotation.NotAnnotated)
+                .ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)
+            : null;
 
         if (IsCollectionType(propertyType, out var elementType))
         {
@@ -219,72 +266,103 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
             typeName: typeName,
             collectionElementTypeName: collectionElementTypeName,
             isOptional: isOptional,
+            optionalResolveTypeName: optionalResolveTypeName,
             strategy: primaryStrategy,
             groupName: groupName,
             deep: deep,
             useSceneFilePath: useSceneFilePath,
-            propertyAccessibility);
+            accessModifier: propertyAccessibility);
 
         return new PropertyInfo(
             className, ns, accessibility, propModel, diagnostics, hasErrors);
     }
 
-    // ────────────────────────────────────────────────────────────────
-    //  Helpers
-    // ────────────────────────────────────────────────────────────────
-
-    private static string? GetAttributeName(AttributeSyntax attr)
+    private static List<PropertyDeclarationSyntax> GetPropertyDeclarations(
+        IPropertySymbol propertySymbol,
+        CancellationToken ct)
     {
-        return attr.Name switch
+        var declarations = new List<PropertyDeclarationSyntax>(
+            propertySymbol.DeclaringSyntaxReferences.Length);
+
+        foreach (var syntaxRef in propertySymbol.DeclaringSyntaxReferences)
         {
-            SimpleNameSyntax simple => simple.Identifier.Text,
-            QualifiedNameSyntax qualified => qualified.Right.Identifier.Text,
-            _ => null,
-        };
+            ct.ThrowIfCancellationRequested();
+
+            if (syntaxRef.GetSyntax(ct) is PropertyDeclarationSyntax declaration)
+                declarations.Add(declaration);
+        }
+
+        return declarations;
     }
 
-    private static bool IsFromAttribute(string name)
+    private static bool IsPartialProperty(List<PropertyDeclarationSyntax> declarations)
     {
-        foreach (var candidate in FromAttributeNames)
+        foreach (var declaration in declarations)
         {
-            if (string.Equals(name, candidate, StringComparison.Ordinal))
+            if (declaration.Modifiers.Any(SyntaxKind.PartialKeyword))
                 return true;
         }
+
         return false;
     }
 
-    private static bool TryGetStrategy(string attributeClassName, out ResolveStrategyModel strategy)
+    private static bool TryGetStrategy(
+        INamedTypeSymbol? attributeClass,
+        SymbolLookup symbols,
+        out ResolveStrategyModel strategy)
     {
-        switch (attributeClassName)
+        if (attributeClass is null)
         {
-            case "FromAncestorAttribute":
-                strategy = ResolveStrategyModel.Ancestor;
-                return true;
-            case "FromOwnerAttribute":
-                strategy = ResolveStrategyModel.Owner;
-                return true;
-            case "FromGroupAttribute":
-                strategy = ResolveStrategyModel.Group;
-                return true;
-            case "FromChildAttribute":
-                strategy = ResolveStrategyModel.Child;
-                return true;
-            default:
-                strategy = default;
-                return false;
+            strategy = default;
+            return false;
         }
+
+        if (symbols.FromAncestorAttribute is not null &&
+            SymbolEqualityComparer.Default.Equals(attributeClass, symbols.FromAncestorAttribute))
+        {
+            strategy = ResolveStrategyModel.Ancestor;
+            return true;
+        }
+
+        if (symbols.FromOwnerAttribute is not null &&
+            SymbolEqualityComparer.Default.Equals(attributeClass, symbols.FromOwnerAttribute))
+        {
+            strategy = ResolveStrategyModel.Owner;
+            return true;
+        }
+
+        if (symbols.FromGroupAttribute is not null &&
+            SymbolEqualityComparer.Default.Equals(attributeClass, symbols.FromGroupAttribute))
+        {
+            strategy = ResolveStrategyModel.Group;
+            return true;
+        }
+
+        if (symbols.FromChildAttribute is not null &&
+            SymbolEqualityComparer.Default.Equals(attributeClass, symbols.FromChildAttribute))
+        {
+            strategy = ResolveStrategyModel.Child;
+            return true;
+        }
+
+        strategy = default;
+        return false;
     }
 
-    private static bool InheritsFromGodotNode(INamedTypeSymbol? type)
+    private static bool InheritsFromGodotNode(
+        INamedTypeSymbol? type,
+        INamedTypeSymbol? godotNodeType)
     {
+        if (godotNodeType is null)
+            return false;
+
         while (type is not null)
         {
-            if (type.ContainingNamespace?.ToDisplayString() == "Godot" &&
-                type.Name == "Node")
+            if (SymbolEqualityComparer.Default.Equals(type, godotNodeType))
                 return true;
-
             type = type.BaseType;
         }
+
         return false;
     }
 
@@ -369,6 +447,39 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
             Property = property;
             Diagnostics = diagnostics;
             HasErrors = hasErrors;
+        }
+    }
+
+    private readonly struct SymbolLookup
+    {
+        public INamedTypeSymbol? FromAncestorAttribute { get; }
+        public INamedTypeSymbol? FromOwnerAttribute { get; }
+        public INamedTypeSymbol? FromGroupAttribute { get; }
+        public INamedTypeSymbol? FromChildAttribute { get; }
+        public INamedTypeSymbol? GodotNode { get; }
+
+        public SymbolLookup(
+            INamedTypeSymbol? fromAncestorAttribute,
+            INamedTypeSymbol? fromOwnerAttribute,
+            INamedTypeSymbol? fromGroupAttribute,
+            INamedTypeSymbol? fromChildAttribute,
+            INamedTypeSymbol? godotNode)
+        {
+            FromAncestorAttribute = fromAncestorAttribute;
+            FromOwnerAttribute = fromOwnerAttribute;
+            FromGroupAttribute = fromGroupAttribute;
+            FromChildAttribute = fromChildAttribute;
+            GodotNode = godotNode;
+        }
+
+        public static SymbolLookup Create(Compilation compilation)
+        {
+            return new SymbolLookup(
+                compilation.GetTypeByMetadataName(FromAncestorAttributeMetadataName),
+                compilation.GetTypeByMetadataName(FromOwnerAttributeMetadataName),
+                compilation.GetTypeByMetadataName(FromGroupAttributeMetadataName),
+                compilation.GetTypeByMetadataName(FromChildAttributeMetadataName),
+                compilation.GetTypeByMetadataName(GodotNodeMetadataName));
         }
     }
 }

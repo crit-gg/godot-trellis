@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace GodotTrellis.Generator;
 
@@ -21,7 +22,7 @@ internal static class Emitter
             sb.AppendLine();
         }
 
-        sb.AppendLine($"{model.Accessibility} partial class {model.ClassName}");
+        sb.AppendLine($"{model.Accessibility} partial class {EscapeIdentifier(model.ClassName)}");
         sb.AppendLine("{");
 
         // Resolver field and property
@@ -54,19 +55,19 @@ internal static class Emitter
     {
         var resolveType = prop.TypeName;
         var args = BuildArgs(prop);
+        var propertyName = EscapeIdentifier(prop.PropertyName);
 
-        sb.AppendLine($"    {prop.AccessModifier} partial {prop.TypeName} {prop.PropertyName}");
+        sb.AppendLine($"    {prop.AccessModifier} partial {prop.TypeName} {propertyName}");
         sb.AppendLine($"        => __Deps.Resolve<{resolveType}>({args});");
     }
 
     private static void EmitOptionalProperty(StringBuilder sb, PropertyModel prop)
     {
-        // The type already includes '?' from the user's declaration.
-        // ResolveOptional returns T? so we need the non-nullable type for the generic arg.
-        var resolveType = prop.TypeName.TrimEnd('?');
+        var resolveType = prop.OptionalResolveTypeName ?? prop.TypeName;
         var args = BuildArgs(prop);
+        var propertyName = EscapeIdentifier(prop.PropertyName);
 
-        sb.AppendLine($"    {prop.AccessModifier} partial {prop.TypeName} {prop.PropertyName}");
+        sb.AppendLine($"    {prop.AccessModifier} partial {prop.TypeName} {propertyName}");
         sb.AppendLine($"        => __Deps.ResolveOptional<{resolveType}>({args});");
     }
 
@@ -74,8 +75,9 @@ internal static class Emitter
     {
         var elementType = prop.CollectionElementTypeName!;
         var args = BuildArgs(prop);
+        var propertyName = EscapeIdentifier(prop.PropertyName);
 
-        sb.AppendLine($"    {prop.AccessModifier} partial {prop.TypeName} {prop.PropertyName}");
+        sb.AppendLine($"    {prop.AccessModifier} partial {prop.TypeName} {propertyName}");
         sb.AppendLine($"        => __Deps.ResolveAll<{elementType}>({args});");
     }
 
@@ -86,7 +88,7 @@ internal static class Emitter
         parts.Add($"GodotTrellis.ResolveStrategy.{prop.Strategy}");
 
         if (prop.GroupName is not null)
-            parts.Add($"groupName: \"{EscapeString(prop.GroupName)}\"");
+            parts.Add($"groupName: {ToStringLiteral(prop.GroupName)}");
 
         if (prop.Deep)
             parts.Add("deep: true");
@@ -97,10 +99,25 @@ internal static class Emitter
         return string.Join(", ", parts);
     }
 
-    private static string EscapeString(string value)
+    private static string EscapeIdentifier(string identifier)
     {
-        return value
-            .Replace("\\", "\\\\")
-            .Replace("\"", "\\\"");
+        if (identifier.StartsWith("@", StringComparison.Ordinal))
+            return identifier;
+
+        if (SyntaxFacts.GetKeywordKind(identifier) != SyntaxKind.None ||
+            SyntaxFacts.GetContextualKeywordKind(identifier) != SyntaxKind.None)
+        {
+            return $"@{identifier}";
+        }
+
+        return identifier;
+    }
+
+    private static string ToStringLiteral(string value)
+    {
+        return SyntaxFactory.LiteralExpression(
+            SyntaxKind.StringLiteralExpression,
+            SyntaxFactory.Literal(value))
+            .ToFullString();
     }
 }

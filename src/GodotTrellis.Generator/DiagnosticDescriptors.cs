@@ -62,7 +62,7 @@ internal static class DiagnosticDescriptors
         title: "Multiple resolution attributes on the same property",
         messageFormat: "Property '{0}' has multiple [From*] attributes; only one resolution strategy is allowed per property",
         category: Category,
-        defaultSeverity: DiagnosticSeverity.Warning,
+        defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        description: "Each property should have exactly one resolution attribute. If multiple are present, the first one found will be used.");
+        description: "Each property should have exactly one resolution attribute. Generation is skipped for properties with multiple [From*] attributes.");
 }

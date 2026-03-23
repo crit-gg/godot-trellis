@@ -23,6 +23,12 @@ internal sealed class PropertyModel
     /// <summary>Whether the property type is nullable (Required = false).</summary>
     public bool IsOptional { get; }
 
+    /// <summary>
+    /// For optional properties, the non-nullable type name used for ResolveOptional&lt;T&gt;.
+    /// Null for required properties.
+    /// </summary>
+    public string? OptionalResolveTypeName { get; }
+
     /// <summary>The resolution strategy.</summary>
     public ResolveStrategyModel Strategy { get; }
 
@@ -43,6 +49,7 @@ internal sealed class PropertyModel
         string typeName,
         string? collectionElementTypeName,
         bool isOptional,
+        string? optionalResolveTypeName,
         ResolveStrategyModel strategy,
         string? groupName,
         bool deep,
@@ -53,6 +60,7 @@ internal sealed class PropertyModel
         TypeName = typeName;
         CollectionElementTypeName = collectionElementTypeName;
         IsOptional = isOptional;
+        OptionalResolveTypeName = optionalResolveTypeName;
         Strategy = strategy;
         GroupName = groupName;
         Deep = deep;
