@@ -8,6 +8,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{8F22D541
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodotTrellis.Tests", "tests\GodotTrellis.Tests\GodotTrellis.Tests.csproj", "{45D91A88-CC72-4962-BAAE-7C4A6F443ED6}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{76853AD0-1F4A-42FB-8FA0-6B7EAE5A330F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GodotTrellisExamples", "examples\GodotTrellisExamples.csproj", "{697C8B06-FE9A-4B7A-A672-31B6D56BDDD7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,8 +30,13 @@ Global
 		{45D91A88-CC72-4962-BAAE-7C4A6F443ED6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{45D91A88-CC72-4962-BAAE-7C4A6F443ED6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{45D91A88-CC72-4962-BAAE-7C4A6F443ED6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{697C8B06-FE9A-4B7A-A672-31B6D56BDDD7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{697C8B06-FE9A-4B7A-A672-31B6D56BDDD7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{697C8B06-FE9A-4B7A-A672-31B6D56BDDD7}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{697C8B06-FE9A-4B7A-A672-31B6D56BDDD7}.Release|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{45D91A88-CC72-4962-BAAE-7C4A6F443ED6} = {8F22D541-E114-41A9-AE9F-A514188FDC74}
+		{697C8B06-FE9A-4B7A-A672-31B6D56BDDD7} = {76853AD0-1F4A-42FB-8FA0-6B7EAE5A330F}
 	EndGlobalSection
 EndGlobal
