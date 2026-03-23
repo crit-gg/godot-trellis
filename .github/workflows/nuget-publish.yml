@@ -51,8 +51,8 @@ jobs:
         if: steps.version.outputs.commits-since-tag != '0'
         run: |
           VERSION=${{ steps.version.outputs.version }}
-          for proj in GodotTrellis.Generator GodotTrellis; do
-            dotnet pack "$proj/$proj.csproj" \
+          for proj in src/GodotTrellis.Generator/GodotTrellis.Generator.csproj src/GodotTrellis/GodotTrellis.csproj; do
+            dotnet pack "$proj" \
               --configuration Release \
               --no-build \
               --output ./nupkgs \
