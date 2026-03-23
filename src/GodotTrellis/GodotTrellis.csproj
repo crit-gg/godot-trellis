@@ -5,6 +5,12 @@
         <LangVersion>14</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <Authors>Crit.GG</Authors>
+        <PackageProjectUrl>https://github.com/crit-gg/godot-trellis</PackageProjectUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/crit-gg/godot-trellis</RepositoryUrl>
+        <PackageTags>godot</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>
