@@ -35,6 +35,9 @@ internal sealed class PropertyModel
     /// <summary>For FromOwner: whether to use SceneFilePath.</summary>
     public bool UseSceneFilePath { get; }
 
+    /// <summary> The access modifier (public, internal, etc.) of the property. </summary>
+    public string AccessModifier { get; }
+
     public PropertyModel(
         string propertyName,
         string typeName,
@@ -43,7 +46,8 @@ internal sealed class PropertyModel
         ResolveStrategyModel strategy,
         string? groupName,
         bool deep,
-        bool useSceneFilePath)
+        bool useSceneFilePath,
+        string accessModifier)
     {
         PropertyName = propertyName;
         TypeName = typeName;
@@ -53,13 +57,6 @@ internal sealed class PropertyModel
         GroupName = groupName;
         Deep = deep;
         UseSceneFilePath = useSceneFilePath;
+        AccessModifier = accessModifier;
     }
-}
-
-internal enum ResolveStrategyModel
-{
-    Ancestor,
-    Owner,
-    Group,
-    Child,
 }

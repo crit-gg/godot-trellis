@@ -55,7 +55,7 @@ internal static class Emitter
         var resolveType = prop.TypeName;
         var args = BuildArgs(prop);
 
-        sb.AppendLine($"    public partial {prop.TypeName} {prop.PropertyName}");
+        sb.AppendLine($"    {prop.AccessModifier} partial {prop.TypeName} {prop.PropertyName}");
         sb.AppendLine($"        => __Deps.Resolve<{resolveType}>({args});");
     }
 
@@ -66,7 +66,7 @@ internal static class Emitter
         var resolveType = prop.TypeName.TrimEnd('?');
         var args = BuildArgs(prop);
 
-        sb.AppendLine($"    public partial {prop.TypeName} {prop.PropertyName}");
+        sb.AppendLine($"    {prop.AccessModifier} partial {prop.TypeName} {prop.PropertyName}");
         sb.AppendLine($"        => __Deps.ResolveOptional<{resolveType}>({args});");
     }
 
@@ -75,7 +75,7 @@ internal static class Emitter
         var elementType = prop.CollectionElementTypeName!;
         var args = BuildArgs(prop);
 
-        sb.AppendLine($"    public partial {prop.TypeName} {prop.PropertyName}");
+        sb.AppendLine($"    {prop.AccessModifier} partial {prop.TypeName} {prop.PropertyName}");
         sb.AppendLine($"        => __Deps.ResolveAll<{elementType}>({args});");
     }
 

@@ -212,6 +212,7 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
             ? null
             : containingType.ContainingNamespace?.ToDisplayString();
         var accessibility = AccessibilityToString(containingType.DeclaredAccessibility);
+        var propertyAccessibility = AccessibilityToString(propSymbol.DeclaredAccessibility);
 
         var propModel = new PropertyModel(
             propertyName: propSymbol.Name,
@@ -221,7 +222,8 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
             strategy: primaryStrategy,
             groupName: groupName,
             deep: deep,
-            useSceneFilePath: useSceneFilePath);
+            useSceneFilePath: useSceneFilePath,
+            propertyAccessibility);
 
         return new PropertyInfo(
             className, ns, accessibility, propModel, diagnostics, hasErrors);
