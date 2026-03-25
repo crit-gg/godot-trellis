@@ -6,4 +6,5 @@ internal enum ResolveStrategyModel
     Owner,
     Group,
     Child,
+    Sibling,
 }

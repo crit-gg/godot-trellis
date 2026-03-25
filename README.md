@@ -15,6 +15,9 @@ public partial class PlayerHUD : Control
 
     [FromChild]
     public partial HealthBar Health { get; }
+
+    [FromSibling]
+    public partial IAudioListener Listener { get; }
 }
 ```
 
@@ -25,7 +28,7 @@ No `_Ready` setup. No `_Notification` override. Properties resolve lazily on fir
 ## Features
 
 - Zero boilerplate. Declare a partial property, get a resolved dependency.
-- Multiple resolution strategies: ancestors, scene owner, groups, children.
+- Multiple resolution strategies: ancestors, scene owner, groups, children, siblings.
 - Lazy resolution. First access walks the tree, subsequent accesses hit the cache.
 - Automatic invalidation. Cache clears on tree exit, re-resolves on re-entry.
 - Provider change tracking. Providers signal value changes, dependents update automatically.
@@ -160,6 +163,15 @@ Set `Deep = true` to search all descendants recursively:
 public partial InteractableComponent Interactable { get; }
 ```
 
+### `[FromSibling]`
+
+Finds the first sibling (node with the same parent) that matches. The current node is excluded.
+
+```csharp
+[FromSibling]
+public partial IAudioListener Listener { get; }
+```
+
 ---
 
 ## Collections
@@ -175,6 +187,9 @@ public partial IReadOnlyList<InteractableComponent> Interactables { get; }
 
 [FromGroup("ui")]
 public partial IEnumerable<ITooltipProvider> Tooltips { get; }
+
+[FromSibling]
+public partial IReadOnlyList<IStatusEffect> StatusEffects { get; }
 ```
 
 Collections collect all matches for the given strategy. No "multiple match" warning is logged.

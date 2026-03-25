@@ -4,7 +4,8 @@ namespace GodotTrellis;
 /// Base class for all GodotTrellis resolution attributes.
 /// Cannot be used directly, use one of the derived attributes:
 /// <see cref="FromAncestorAttribute"/>, <see cref="FromOwnerAttribute"/>,
-/// <see cref="FromGroupAttribute"/>, or <see cref="FromChildAttribute"/>.
+/// <see cref="FromGroupAttribute"/>, <see cref="FromChildAttribute"/>, or
+/// <see cref="FromSiblingAttribute"/>.
 /// </summary>
 [AttributeUsage(AttributeTargets.Property)]
 public abstract class FromAttribute : Attribute

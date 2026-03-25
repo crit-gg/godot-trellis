@@ -195,6 +195,84 @@ public class DependencyResolverTests(GodotHeadlessFixture godot)
     }
 
     [Fact]
+    public void Resolve_Sibling_ReturnsMatchingSibling_AndSkipsSelf()
+    {
+        WithTestRoot(testRoot =>
+        {
+            var parent = new Node();
+            testRoot.AddChild(parent);
+
+            var owner = new TestProviderNode();
+            owner.SetValue(new TestService("self"));
+            parent.AddChild(owner);
+
+            var siblingProvider = new TestProviderNode();
+            siblingProvider.SetValue(new TestService("sibling"));
+            parent.AddChild(siblingProvider);
+
+            var resolver = new DependencyResolver(owner);
+
+            var resolved = resolver.Resolve<ITestService>(ResolveStrategy.Sibling);
+
+            Assert.Same(siblingProvider.Current, resolved);
+            Assert.NotSame(owner.Current, resolved);
+        });
+    }
+
+    [Fact]
+    public void ResolveAll_Sibling_ReturnsAllSiblingMatches()
+    {
+        WithTestRoot(testRoot =>
+        {
+            var parent = new Node();
+            testRoot.AddChild(parent);
+
+            var owner = new Node();
+            parent.AddChild(owner);
+
+            var firstSibling = new TestProviderNode();
+            firstSibling.SetValue(new TestService("first"));
+            parent.AddChild(firstSibling);
+
+            var nonMatchingSibling = new Node();
+            parent.AddChild(nonMatchingSibling);
+
+            var secondSibling = new TestProviderNode();
+            secondSibling.SetValue(new TestService("second"));
+            parent.AddChild(secondSibling);
+
+            var resolver = new DependencyResolver(owner);
+
+            var resolved = resolver.ResolveAll<ITestService>(ResolveStrategy.Sibling);
+
+            Assert.Equal(2, resolved.Count);
+            Assert.Same(firstSibling.Current, resolved[0]);
+            Assert.Same(secondSibling.Current, resolved[1]);
+        });
+    }
+
+    [Fact]
+    public void ResolveOptional_Sibling_WhenMissing_ReturnsNull()
+    {
+        WithTestRoot(testRoot =>
+        {
+            var parent = new Node();
+            testRoot.AddChild(parent);
+
+            var owner = new Node();
+            parent.AddChild(owner);
+
+            parent.AddChild(new Node());
+
+            var resolver = new DependencyResolver(owner);
+
+            var resolved = resolver.ResolveOptional<ITestService>(ResolveStrategy.Sibling);
+
+            Assert.Null(resolved);
+        });
+    }
+
+    [Fact]
     public void Resolve_Group_MultipleMatches_UsesFirstAndLogsWarning()
     {
         WithTestRoot(testRoot =>

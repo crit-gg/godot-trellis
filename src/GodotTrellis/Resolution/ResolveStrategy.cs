@@ -28,5 +28,11 @@ public enum ResolveStrategy
     /// Search the node's direct children, or all descendants if deep.
     /// Corresponds to <see cref="FromChildAttribute"/>.
     /// </summary>
-    Child
+    Child,
+
+    /// <summary>
+    /// Search nodes that share the same parent (excluding self).
+    /// Corresponds to <see cref="FromSiblingAttribute"/>.
+    /// </summary>
+    Sibling
 }

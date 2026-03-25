@@ -242,6 +242,7 @@ public sealed class DependencyResolver
             ResolveStrategy.Owner => CheckOwner<T>(useSceneFilePath),
             ResolveStrategy.Group => QueryGroup<T>(groupName!),
             ResolveStrategy.Child => SearchChildren<T>(deep),
+            ResolveStrategy.Sibling => SearchSiblings<T>(),
             _ => throw new ArgumentOutOfRangeException(nameof(strategy), strategy, null),
         };
     }
@@ -348,6 +349,31 @@ public sealed class DependencyResolver
             : SearchChildrenDirect<T>();
     }
 
+    private (T value, Node provider)? SearchSiblings<T>() where T : class
+    {
+        var parent = _owner.GetParent();
+        if (parent is null)
+        {
+            Log($"No parent available, cannot search siblings for {typeof(T).Name}");
+            return null;
+        }
+
+        foreach (var sibling in parent.GetChildren())
+        {
+            if (ReferenceEquals(sibling, _owner))
+                continue;
+
+            if (TryMatch<T>(sibling, out var value))
+            {
+                Log($"Found {typeof(T).Name} in sibling: {sibling.Name}");
+                return (value, sibling);
+            }
+        }
+
+        Log($"No {typeof(T).Name} found in siblings");
+        return null;
+    }
+
     private (T value, Node provider)? SearchChildrenDirect<T>() where T : class
     {
         foreach (var child in _owner.GetChildren())
@@ -396,6 +422,7 @@ public sealed class DependencyResolver
             ResolveStrategy.Owner => CollectOwner<T>(useSceneFilePath),
             ResolveStrategy.Group => CollectGroup<T>(groupName!),
             ResolveStrategy.Child => CollectChildren<T>(deep),
+            ResolveStrategy.Sibling => CollectSiblings<T>(),
             _ => throw new ArgumentOutOfRangeException(nameof(strategy), strategy, null),
         };
     }
@@ -469,6 +496,30 @@ public sealed class DependencyResolver
             CollectChildrenDirect(results);
 
         Log($"Collected {results.Count} {typeof(T).Name} from children (deep={deep})");
+        return results;
+    }
+
+    private List<(T value, Node provider)> CollectSiblings<T>() where T : class
+    {
+        var results = new List<(T, Node)>();
+        var parent = _owner.GetParent();
+
+        if (parent is null)
+        {
+            Log($"No parent available, collected 0 {typeof(T).Name} from siblings");
+            return results;
+        }
+
+        foreach (var sibling in parent.GetChildren())
+        {
+            if (ReferenceEquals(sibling, _owner))
+                continue;
+
+            if (TryMatch<T>(sibling, out var value))
+                results.Add((value, sibling));
+        }
+
+        Log($"Collected {results.Count} {typeof(T).Name} from siblings");
         return results;
     }
 
@@ -550,6 +601,8 @@ public sealed class DependencyResolver
                 ?? throw new DependencyNotFoundException(owner.GetType(), typeof(T), strategy),
             ResolveStrategy.Child => owner => SearchChildren<T>(deep)
                 ?? throw new DependencyNotFoundException(owner.GetType(), typeof(T), strategy),
+            ResolveStrategy.Sibling => owner => SearchSiblings<T>()
+                ?? throw new DependencyNotFoundException(owner.GetType(), typeof(T), strategy),
             _ => throw new ArgumentOutOfRangeException(nameof(strategy)),
         };
     }
@@ -566,6 +619,7 @@ public sealed class DependencyResolver
             ResolveStrategy.Owner => _ => CollectOwner<T>(useSceneFilePath),
             ResolveStrategy.Group => _ => CollectGroup<T>(groupName!),
             ResolveStrategy.Child => _ => CollectChildren<T>(deep),
+            ResolveStrategy.Sibling => _ => CollectSiblings<T>(),
             _ => throw new ArgumentOutOfRangeException(nameof(strategy)),
         };
     }

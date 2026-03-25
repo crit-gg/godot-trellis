@@ -12,6 +12,7 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
     private const string FromOwnerAttributeMetadataName = "GodotTrellis.FromOwnerAttribute";
     private const string FromGroupAttributeMetadataName = "GodotTrellis.FromGroupAttribute";
     private const string FromChildAttributeMetadataName = "GodotTrellis.FromChildAttribute";
+    private const string FromSiblingAttributeMetadataName = "GodotTrellis.FromSiblingAttribute";
     private const string GodotNodeMetadataName = "Godot.Node";
 
     public void Initialize(IncrementalGeneratorInitializationContext context)
@@ -24,14 +25,18 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
             context, FromGroupAttributeMetadataName);
         var fromChildProperties = CreateAttributedPropertyProvider(
             context, FromChildAttributeMetadataName);
+        var fromSiblingProperties = CreateAttributedPropertyProvider(
+            context, FromSiblingAttributeMetadataName);
 
         var candidateProperties = fromAncestorProperties
             .Collect()
             .Combine(fromOwnerProperties.Collect())
             .Combine(fromGroupProperties.Collect())
             .Combine(fromChildProperties.Collect())
+            .Combine(fromSiblingProperties.Collect())
             .Select(static (x, _) => MergePropertySymbols(
-                x.Left.Left.Left,
+                x.Left.Left.Left.Left,
+                x.Left.Left.Left.Right,
                 x.Left.Left.Right,
                 x.Left.Right,
                 x.Right));
@@ -98,18 +103,21 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
         ImmutableArray<IPropertySymbol> fromAncestorProperties,
         ImmutableArray<IPropertySymbol> fromOwnerProperties,
         ImmutableArray<IPropertySymbol> fromGroupProperties,
-        ImmutableArray<IPropertySymbol> fromChildProperties)
+        ImmutableArray<IPropertySymbol> fromChildProperties,
+        ImmutableArray<IPropertySymbol> fromSiblingProperties)
     {
         var builder = ImmutableArray.CreateBuilder<IPropertySymbol>(
             fromAncestorProperties.Length +
             fromOwnerProperties.Length +
             fromGroupProperties.Length +
-            fromChildProperties.Length);
+            fromChildProperties.Length +
+            fromSiblingProperties.Length);
 
         builder.AddRange(fromAncestorProperties);
         builder.AddRange(fromOwnerProperties);
         builder.AddRange(fromGroupProperties);
         builder.AddRange(fromChildProperties);
+        builder.AddRange(fromSiblingProperties);
 
         return builder.ToImmutable();
     }
@@ -345,6 +353,13 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
             return true;
         }
 
+        if (symbols.FromSiblingAttribute is not null &&
+            SymbolEqualityComparer.Default.Equals(attributeClass, symbols.FromSiblingAttribute))
+        {
+            strategy = ResolveStrategyModel.Sibling;
+            return true;
+        }
+
         strategy = default;
         return false;
     }
@@ -456,6 +471,7 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
         public INamedTypeSymbol? FromOwnerAttribute { get; }
         public INamedTypeSymbol? FromGroupAttribute { get; }
         public INamedTypeSymbol? FromChildAttribute { get; }
+        public INamedTypeSymbol? FromSiblingAttribute { get; }
         public INamedTypeSymbol? GodotNode { get; }
 
         public SymbolLookup(
@@ -463,12 +479,14 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
             INamedTypeSymbol? fromOwnerAttribute,
             INamedTypeSymbol? fromGroupAttribute,
             INamedTypeSymbol? fromChildAttribute,
+            INamedTypeSymbol? fromSiblingAttribute,
             INamedTypeSymbol? godotNode)
         {
             FromAncestorAttribute = fromAncestorAttribute;
             FromOwnerAttribute = fromOwnerAttribute;
             FromGroupAttribute = fromGroupAttribute;
             FromChildAttribute = fromChildAttribute;
+            FromSiblingAttribute = fromSiblingAttribute;
             GodotNode = godotNode;
         }
 
@@ -479,6 +497,7 @@ public sealed class TrellisSourceGenerator : IIncrementalGenerator
                 compilation.GetTypeByMetadataName(FromOwnerAttributeMetadataName),
                 compilation.GetTypeByMetadataName(FromGroupAttributeMetadataName),
                 compilation.GetTypeByMetadataName(FromChildAttributeMetadataName),
+                compilation.GetTypeByMetadataName(FromSiblingAttributeMetadataName),
                 compilation.GetTypeByMetadataName(GodotNodeMetadataName));
         }
     }
