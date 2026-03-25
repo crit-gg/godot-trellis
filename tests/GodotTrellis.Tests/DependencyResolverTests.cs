@@ -261,6 +261,45 @@ public class DependencyResolverTests(GodotHeadlessFixture godot)
     }
 
     [Fact]
+    public void Resolve_DuringExitTreePhase_AfterWarmCache_ReturnsCachedValue()
+    {
+        WithTestRoot(testRoot =>
+        {
+            var provider = new TestProviderNode();
+            provider.SetValue(new TestService("v1"));
+            testRoot.AddChild(provider);
+
+            var owner = new Node();
+            provider.AddChild(owner);
+
+            var resolver = new DependencyResolver(owner);
+            var cached = resolver.Resolve<ITestService>(ResolveStrategy.Ancestor);
+
+            ITestService? duringExit = null;
+            Exception? exitException = null;
+
+            owner.TreeExiting += () =>
+            {
+                try
+                {
+                    duringExit = resolver.Resolve<ITestService>(ResolveStrategy.Ancestor);
+                }
+                catch (Exception ex)
+                {
+                    exitException = ex;
+                }
+            };
+
+            provider.RemoveChild(owner);
+
+            Assert.Null(exitException);
+            Assert.Same(cached, duringExit);
+
+            owner.Free();
+        });
+    }
+
+    [Fact]
     public void ProviderChangedEvent_RefreshesCachedValueAndRaisesOnDependencyChanged()
     {
         WithTestRoot(testRoot =>
@@ -399,4 +438,5 @@ public class DependencyResolverTests(GodotHeadlessFixture godot)
             ProvidedValueChanged?.Invoke();
         }
     }
+
 }

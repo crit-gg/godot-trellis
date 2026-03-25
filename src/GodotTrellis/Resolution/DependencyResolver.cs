@@ -186,14 +186,21 @@ public sealed class DependencyResolver
         if (_subscribed) return;
         _subscribed = true;
         _owner.TreeExiting += OnTreeExiting;
+        _owner.TreeExited += OnTreeExited;
     }
 
     private void OnTreeExiting()
     {
+        // Keep cached values available for user _ExitTree callbacks.
+        Log($"Tree exiting on {_owner.Name}");
+    }
+
+    private void OnTreeExited()
+    {
         UnsubscribeAll();
         _entries.Clear();
         _dirty = true;
-        Log($"Tree exiting, cache cleared on {_owner.Name}");
+        Log($"Tree exited, cache cleared on {_owner.Name}");
     }
 
     private void UnsubscribeAll()
