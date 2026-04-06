@@ -12,7 +12,7 @@
     <ItemGroup>
         <PackageReference Include="2dog" Version="0.1.16-pre"/>
         <PackageReference Include="2dog.xunit" Version="0.1.16-pre"/>
-        <PackageReference Include="GodotSharp" Version="4.6.0" />
+        <PackageReference Include="GodotSharp" Version="4.6.2" />
     </ItemGroup>
 
     <!-- Platform-specific native library packages -->
