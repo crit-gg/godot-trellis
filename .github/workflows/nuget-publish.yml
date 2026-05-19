@@ -67,6 +67,14 @@ jobs:
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
 
+      - name: Push to Crit.GG
+        if: steps.version.outputs.commits-since-tag != '0'
+        run: |
+          dotnet nuget push ./nupkgs/*.nupkg \
+          --api-key ${{ secrets.CRIT_NUGET_API_KEY }} \
+          --source https://nuget.crit.gg/v3/index.json \
+          --skip-duplicate
+
       - name: Tag release
         if: steps.version.outputs.commits-since-tag != '0'
         run: |
